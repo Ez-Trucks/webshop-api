@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "Part" (
+CREATE TABLE IF NOT EXISTS "Part" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "partNumber" TEXT NOT NULL,

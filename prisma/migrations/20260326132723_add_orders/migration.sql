@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "Order" (
+CREATE TABLE IF NOT EXISTS "Order" (
     "id" TEXT NOT NULL,
     "customerName" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE "Order" (
 );
 
 -- CreateTable
-CREATE TABLE "OrderItem" (
+CREATE TABLE IF NOT EXISTS "OrderItem" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
     "partId" TEXT,
@@ -29,4 +29,11 @@ CREATE TABLE "OrderItem" (
 );
 
 -- AddForeignKey
-ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'OrderItem_orderId_fkey'
+  ) THEN
+    ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
