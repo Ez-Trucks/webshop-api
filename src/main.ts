@@ -21,7 +21,24 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: corsOrigins,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      try {
+        const hostname = new URL(origin).hostname;
+        const isAllowed =
+          corsOrigins.includes(origin) ||
+          hostname === 'webshop-blue-beta.vercel.app' ||
+          hostname.endsWith('.vercel.app');
+
+        callback(null, isAllowed);
+      } catch {
+        callback(null, false);
+      }
+    },
     credentials: true,
   });
 
