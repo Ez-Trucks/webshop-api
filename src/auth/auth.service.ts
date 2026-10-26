@@ -194,6 +194,10 @@ export class AuthService implements OnModuleInit {
       throw new ServiceUnavailableException('Auth is nog niet geconfigureerd');
     }
 
+    if (Buffer.byteLength(this.tokenSecret, 'utf8') < 32) {
+      throw new ServiceUnavailableException('Stel een unieke ADMIN_AUTH_SECRET van minstens 32 bytes in op de server.');
+    }
+
     return {
       username: this.adminUsername,
       passwordHash: this.adminPasswordHash,

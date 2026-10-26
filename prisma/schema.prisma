@@ -16,6 +16,16 @@ model Part {
   condition  String
   price      Float
   image      String?
+  stock      Int      @default(1)
+  warehouseLocation String?
+  year       Int?
+  mileage    Int?
+  euroNorm   String?
+  axleConfig String?
+  powerHp    Int?
+  fuel       String?
+  transmission String?
+  description String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -46,4 +56,25 @@ model OrderItem {
   quantity   Int
 
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// Private admin drafts. Only the explicit publish action creates a public Part.
+model VehicleAdDraft {
+  id          String   @id @default(uuid())
+  title       String   @default("")
+  vin         String   @default("")
+  notes       String   @default("")
+  reference   String   @default("")
+  price       Float    @default(0)
+  photos      Json
+  documents   Json
+  facts       Json
+  texts       Json
+  warnings    Json
+  status      String   @default("draft")
+  revision    Int      @default(1)
+  partId      String?  @unique
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

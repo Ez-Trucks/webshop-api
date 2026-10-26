@@ -37,6 +37,16 @@ export class PartsService {
         condition: dto.condition,
         price: dto.price,
         image: dto.image ?? null,
+        stock: dto.stock ?? 1,
+        warehouseLocation: dto.warehouseLocation?.trim() || null,
+        year: dto.year ?? null,
+        mileage: dto.mileage ?? null,
+        euroNorm: dto.euroNorm?.trim() || null,
+        axleConfig: dto.axleConfig?.trim() || null,
+        powerHp: dto.powerHp ?? null,
+        fuel: dto.fuel?.trim() || null,
+        transmission: dto.transmission?.trim() || null,
+        description: dto.description?.trim() || null,
       },
     });
   }
@@ -54,6 +64,18 @@ export class PartsService {
         ...(dto.condition !== undefined ? { condition: dto.condition } : {}),
         ...(dto.price !== undefined ? { price: dto.price } : {}),
         ...(dto.image !== undefined ? { image: dto.image } : {}),
+        ...(dto.stock !== undefined ? { stock: dto.stock } : {}),
+        ...(dto.warehouseLocation !== undefined
+          ? { warehouseLocation: dto.warehouseLocation.trim() || null }
+          : {}),
+        ...(dto.year !== undefined ? { year: dto.year } : {}),
+        ...(dto.mileage !== undefined ? { mileage: dto.mileage } : {}),
+        ...(dto.euroNorm !== undefined ? { euroNorm: dto.euroNorm.trim() || null } : {}),
+        ...(dto.axleConfig !== undefined ? { axleConfig: dto.axleConfig.trim() || null } : {}),
+        ...(dto.powerHp !== undefined ? { powerHp: dto.powerHp } : {}),
+        ...(dto.fuel !== undefined ? { fuel: dto.fuel.trim() || null } : {}),
+        ...(dto.transmission !== undefined ? { transmission: dto.transmission.trim() || null } : {}),
+        ...(dto.description !== undefined ? { description: dto.description.trim() || null } : {}),
       },
     });
   }

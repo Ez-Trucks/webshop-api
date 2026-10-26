@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import createMollieClient from '@mollie/api-client';
 
 @Injectable()
@@ -11,13 +11,12 @@ export class MollieService {
   constructor() {
     const apiKey = process.env.MOLLIE_API_KEY;
 
-    if (!apiKey) {
-      throw new Error('MOLLIE_API_KEY is niet ingesteld in .env');
-    }
+    this.mollieClient = apiKey ? createMollieClient({ apiKey }) : null;
+  }
 
-    this.mollieClient = createMollieClient({
-      apiKey,
-    });
+  private requireClient() {
+    if (!this.mollieClient) throw new ServiceUnavailableException('Online betalingen zijn nog niet ingesteld.');
+    return this.mollieClient;
   }
 
   async createPayment(orderId: string, amount: number) {
@@ -32,7 +31,7 @@ export class MollieService {
       throw new Error('API_PUBLIC_URL of MOLLIE_WEBHOOK_URL is niet ingesteld in .env');
     }
 
-    const payment = await this.mollieClient.payments.create({
+    const payment = await this.requireClient().payments.create({
       amount: {
         currency: 'EUR',
         value: amount.toFixed(2),
@@ -49,6 +48,6 @@ export class MollieService {
   }
 
   async getPayment(paymentId: string) {
-    return this.mollieClient.payments.get(paymentId);
+    return this.requireClient().payments.get(paymentId);
   }
 }
