@@ -24,7 +24,7 @@ export class CreateDraftDto {
   @IsString() @MaxLength(120) title: string;
   @IsString() @Matches(/^(?:[A-HJ-NPR-Z0-9]{17})?$/) vin: string;
   @IsString() @MaxLength(15000) notes: string;
-  @IsArray() @ArrayMaxSize(8) @IsString({ each: true }) @MaxLength(1500000, { each: true }) photos: string[];
+  @IsArray() @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(1500000, { each: true }) photos: string[];
   @IsArray() @ArrayMaxSize(3) @ValidateNested({ each: true }) @Type(() => AttachmentDto) documents: AttachmentDto[];
 }
 export class UpdateDraftDto extends CreateDraftDto {

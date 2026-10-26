@@ -98,6 +98,12 @@ describe('AI advertentieassistent — publicatie en controle', () => {
 });
 
 describe('Invoervalidatie', () => {
+  it.each([30, 31])('controleert de fotolimiet bij %s foto’s voor maken en bijwerken', async count => {
+    for (const Dto of [CreateDraftDto, UpdateDraftDto]) {
+      const errors = await validate(plainToInstance(Dto, { ...sample(), photos: Array(count).fill(picture) }));
+      expect(errors.some(e => e.property === 'photos')).toBe(count > 30);
+    }
+  });
   it('weigert ongeldige VINs en extra clientvelden', async () => {
     const errors = await validate(plainToInstance(CreateDraftDto, { title: '', vin: 'INVALID', notes: '', photos: [], documents: [], status: 'published' }), { whitelist: true, forbidNonWhitelisted: true });
     expect(errors.map(e => e.property)).toEqual(expect.arrayContaining(['vin', 'status']));

@@ -8,8 +8,8 @@ import { allowedOrigins, originAllowed } from './operations/cors';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(json({ limit: '18mb' }));
-  app.use(urlencoded({ extended: true, limit: '18mb' }));
+  app.use(json({ limit: '30mb' }));
+  app.use(urlencoded({ extended: true, limit: '30mb' }));
 
   app.useGlobalPipes(
     new ValidationPipe({
