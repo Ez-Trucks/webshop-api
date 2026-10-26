@@ -45,7 +45,7 @@ export class AdAssistantService {
     };
     for (const photo of dto.photos) if (!check(photo).startsWith('image/')) throw new BadRequestException('Een voertuigfoto moet een afbeelding zijn.');
     for (const doc of dto.documents) check(doc.data, doc.mime);
-    if (total > 10 * 1024 * 1024) throw new BadRequestException('Alle bestanden samen mogen maximaal 10 MB zijn.');
+    if (total > 20 * 1024 * 1024) throw new BadRequestException('Alle bestanden samen mogen maximaal 20 MB zijn.');
   }
   async create(dto: CreateDraftDto) {
     this.validateFiles(dto);
