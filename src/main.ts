@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
+import { allowedOrigins, originAllowed } from './operations/cors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -18,33 +19,12 @@ async function bootstrap() {
     }),
   );
 
-  const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:4200';
-  const corsOrigins = (process.env.CORS_ORIGINS ?? frontendUrl)
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-
+  const origins = allowedOrigins();
   app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-
-      try {
-        const hostname = new URL(origin).hostname;
-        const isAllowed =
-          corsOrigins.includes(origin) ||
-          hostname === 'webshop-blue-beta.vercel.app' ||
-          hostname.endsWith('.vercel.app');
-
-        callback(null, isAllowed);
-      } catch {
-        callback(null, false);
-      }
-    },
+    origin: (origin, callback) => callback(null, originAllowed(origin, origins)),
     credentials: true,
   });
+  app.enableShutdownHooks();
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port, '0.0.0.0');

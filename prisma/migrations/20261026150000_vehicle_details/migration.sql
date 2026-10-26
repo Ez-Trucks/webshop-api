@@ -1,0 +1,9 @@
+-- Additive upgrade for existing stock; preserve all vehicle and order records.
+ALTER TABLE "Part" ADD COLUMN IF NOT EXISTS "year" INTEGER;
+ALTER TABLE "Part" ADD COLUMN IF NOT EXISTS "mileage" INTEGER;
+ALTER TABLE "Part" ADD COLUMN IF NOT EXISTS "euroNorm" TEXT;
+ALTER TABLE "Part" ADD COLUMN IF NOT EXISTS "axleConfig" TEXT;
+ALTER TABLE "Part" ADD COLUMN IF NOT EXISTS "powerHp" INTEGER;
+ALTER TABLE "Part" ADD COLUMN IF NOT EXISTS "fuel" TEXT;
+ALTER TABLE "Part" ADD COLUMN IF NOT EXISTS "transmission" TEXT;
+ALTER TABLE "Part" ADD COLUMN IF NOT EXISTS "description" TEXT;

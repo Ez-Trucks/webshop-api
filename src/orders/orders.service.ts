@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { MailService } from '../mail/mail.service';
@@ -80,30 +80,61 @@ export class OrdersService {
     });
   }
 
-  create(dto: CreateOrderDto) {
-    return this.prisma.order.create({
-      data: {
-        customerName: dto.customerName,
-        email: dto.email,
-        phone: dto.phone ?? null,
-        address: dto.address,
-        city: dto.city,
-        postalCode: dto.postalCode,
-        country: dto.country,
-        totalPrice: dto.totalPrice,
-        status: 'pending',
-        items: {
-          create: dto.items.map((item) => ({
-            partId: item.partId ?? null,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-          })),
+  async create(dto: CreateOrderDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const stockItems = dto.items.filter((item) => item.partId);
+
+      for (const item of stockItems) {
+        const part = await tx.part.findUnique({
+          where: { id: item.partId },
+        });
+
+        if (!part) {
+          throw new BadRequestException(`Onderdeel ${item.name} bestaat niet meer.`);
+        }
+
+        if (part.stock < item.quantity) {
+          throw new BadRequestException(
+            `Niet genoeg voorraad voor ${part.name}. Beschikbaar: ${part.stock}.`,
+          );
+        }
+      }
+
+      for (const item of stockItems) {
+        await tx.part.update({
+          where: { id: item.partId },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+          },
+        });
+      }
+
+      return tx.order.create({
+        data: {
+          customerName: dto.customerName,
+          email: dto.email,
+          phone: dto.phone ?? null,
+          address: dto.address,
+          city: dto.city,
+          postalCode: dto.postalCode,
+          country: dto.country,
+          totalPrice: dto.totalPrice,
+          status: 'pending',
+          items: {
+            create: dto.items.map((item) => ({
+              partId: item.partId ?? null,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+            })),
+          },
         },
-      },
-      include: {
-        items: true,
-      },
+        include: {
+          items: true,
+        },
+      });
     });
   }
 }

@@ -1,98 +1,64 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# EZ-Trucks API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS 11, PostgreSQL and Prisma 7. The API supports the public vehicle stock, admin vehicle management, depannage enquiries and private advertisement drafts. The AI assistant uses the server-side OpenAI Responses API; without an AI key, manual drafting and standard descriptions remain available.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Local development
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+Use Node.js 22. Copy `.env.example` to `.env` and provide your own local database and admin configuration. Never commit `.env`, real passwords, tokens or uploaded source documents.
 
 ```bash
-$ npm install
+npm ci
+npx prisma generate
+npm run db:deploy
+npm run start:dev
 ```
 
-## Compile and run the project
+## Release checks
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npx prisma validate
+npm run test:release
+npm run build
 ```
 
-## Run tests
+GitHub Actions also creates a disposable PostgreSQL 16 database, applies the full migration history and runs `npm run test:database`. That test uses actual HTTP routes and database storage for login, revisions, JSONB roundtrips and one-time publication. It refuses to run without `NODE_ENV=test`, `RELEASE_TEST_DATABASE=1` and a localhost database URL. It never connects to the production database or makes real AI/mail/payment requests.
 
-```bash
-# unit tests
-$ npm run test
+## Deploy to the existing Render service
 
-# e2e tests
-$ npm run test:e2e
+Deploy the API before the matching website version. The repository's `render.yaml` specifies:
 
-# test coverage
-$ npm run test:cov
-```
+- Build: `npm ci && npx prisma generate && npm run build`
+- Start: `npm run start:deploy`
+- Health check: `/health`
 
-## Deployment
+`start:deploy` applies pending migrations before accepting requests. This works without a paid pre-deploy step. For an existing Render service, check the actual dashboard settings: changing YAML updates the service automatically only when it is managed by that Blueprint.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Required service settings: `NODE_ENV=production`, `DATABASE_URL`, `FRONTEND_URL`, `CORS_ORIGINS`, `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH`, `ADMIN_AUTH_SECRET`. Generate a unique random `ADMIN_AUTH_SECRET` of at least 32 bytes in the hosting environment. The previously shared example value was shorter and is now rejected; replace it before launch if it was copied into the service settings. Real values have been removed from the example configuration. Use `npm run admin:hash` to create a password hash through the existing script. `CORS_ORIGINS` is a comma-separated list of exact website origins, for example `https://ez-trucks.com,https://www.ez-trucks.com,https://webshop-blue-beta.vercel.app`. An unrelated Vercel deployment is not automatically trusted.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+For email notifications configure `POSTMARK_SERVER_TOKEN`, a verified `MAIL_FROM`, and `ADMIN_ORDER_EMAIL`. Missing mail configuration is visible in the admin status page; enquiries are stored even when their notification cannot be sent. The mail service can start without mail configuration, but the status page considers email setup a requirement for launch. Payment configuration is optional while checkout remains disabled; payment endpoints return a service-unavailable error without a Mollie key.
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+For AI configure `OPENAI_API_KEY` and optionally `OPENAI_AD_MODEL` (default `gpt-4.1-mini`). AI account access, quota and output quality must be checked with an authorised test after configuration. Keys stay on Render, never in frontend configuration or GitHub.
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Existing production database
 
-## Resources
+The new inventory/detail migrations add columns with `IF NOT EXISTS`; they do not remove stock or order data. The new `VehicleAdDraft` table contains private sources and drafts. Retain all previously applied migration files and their checksums.
 
-Check out a few resources that may come in handy when working with NestJS:
+Before the first release, inspect `npx prisma migrate status` in the production environment and retain a restorable database backup using the database provider's normal tooling. If an existing database has no Prisma migration history and Prisma reports P3005, stop and reconcile/baseline only the migrations whose effects have been verified in that database. Do not use `migrate reset`, delete tables, or blindly mark all migrations as applied. This repository does not automatically baseline an unknown production database.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+After deployment, `/health` checks database connectivity. The authenticated `/admin/readiness` endpoint also checks the vehicle columns and draft table, and reports configuration-presence checks without exposing secrets. Mail delivery and AI availability are not proven merely by a present key.
 
-## Support
+## Advertisement workflow
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+The matching website exposes `/admin/ad-assistant`. The workflow saves a private draft, analyses supplied sources, requires manual field confirmation, creates editable NL/EN/FR/DE descriptions, and creates a public `Part` only after explicit approval. Source/fact changes invalidate generated text. Repeated publication reuses the existing vehicle; revision conflicts prevent overwriting another session's changes. The public website uses the Dutch description, consistent with the existing stock model.
 
-## Stay in touch
+Only the administrator can access draft routes, source documents and readiness checks. Uploaded documents are sent to OpenAI only when the administrator requests analysis; requests use `store: false`. Document/photograph inference is not a manufacturer VIN lookup. Autoline currently uses a per-language text export, not direct marketplace publication.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Release order
 
-## License
+1. API checks and isolated database test pass.
+2. Confirm production settings and existing migration history; deploy the API.
+3. Check `/health`, admin login and `/admin/readiness`.
+4. Deploy the matching `Ez-Trucks/webshop` frontend with the correct `EZ_TRUCKS_API_URL`.
+5. Verify business contact details, submit one authorised real enquiry, and create/review a test advertisement before general use.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+The private ChatGPT preview has its own browser-local demo adapter. That adapter and its automatic demo session are not part of this repository or the production build.

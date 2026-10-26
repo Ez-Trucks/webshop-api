@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import * as postmark from 'postmark';
 
 type OrderItem = {
@@ -21,19 +21,31 @@ type MailOrder = {
   items: OrderItem[];
 };
 
+type DepannageRequest = {
+  name: string;
+  company?: string;
+  email: string;
+  phone: string;
+  location: string;
+  vehicleInfo: string;
+  urgency: string;
+  message?: string;
+};
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private client: postmark.ServerClient;
+  private client: postmark.ServerClient | null;
 
   constructor() {
     const token = process.env.POSTMARK_SERVER_TOKEN;
 
-    if (!token) {
-      throw new Error('POSTMARK_SERVER_TOKEN ontbreekt in .env');
-    }
+    this.client = token ? new postmark.ServerClient(token) : null;
+  }
 
-    this.client = new postmark.ServerClient(token);
+  private requireClient(): postmark.ServerClient {
+    if (!this.client || !process.env.MAIL_FROM) throw new ServiceUnavailableException('E-mail is nog niet ingesteld.');
+    return this.client;
   }
 
   async sendOrderConfirmation(email: string, order: MailOrder) {
@@ -79,6 +91,25 @@ export class MailService {
     });
   }
 
+  async sendDepannageRequest(request: DepannageRequest) {
+    const adminEmail = process.env.ADMIN_ORDER_EMAIL || process.env.MAIL_FROM;
+
+    if (!adminEmail) {
+      this.logger.warn('ADMIN_ORDER_EMAIL en MAIL_FROM ontbreken; depannagemail niet verstuurd.');
+      return;
+    }
+
+    return this.requireClient().sendEmail({
+      From: process.env.MAIL_FROM!,
+      To: adminEmail,
+      ReplyTo: request.email,
+      Subject: `Nieuwe depannageaanvraag - ${this.escape(request.name)}`,
+      HtmlBody: this.buildDepannageHtml(request),
+      TextBody: this.buildDepannageText(request),
+      MessageStream: 'outbound',
+    });
+  }
+
   private sendEmail(options: {
     to: string;
     subject: string;
@@ -88,7 +119,7 @@ export class MailService {
     footer: string;
     includeCustomerBlock?: boolean;
   }) {
-    return this.client.sendEmail({
+    return this.requireClient().sendEmail({
       From: process.env.MAIL_FROM!,
       To: options.to,
       Subject: options.subject,
@@ -214,6 +245,61 @@ Items:
 ${order.items.map((item) => `- ${item.name} x${item.quantity} - ${this.formatPrice(item.price)}`).join('\n')}
 
 ${options.footer}
+    `.trim();
+  }
+
+  private buildDepannageHtml(request: DepannageRequest): string {
+    const rows = [
+      ['Naam', request.name],
+      ['Bedrijf', request.company || '-'],
+      ['E-mail', request.email],
+      ['Telefoon', request.phone],
+      ['Locatie vrachtwagen', request.location],
+      ['Vrachtwagen', request.vehicleInfo],
+      ['Dringendheid', request.urgency],
+      ['Bericht', request.message || '-'],
+    ]
+      .map(
+        ([label, value]) => `
+          <tr>
+            <td style="padding:12px 0;border-bottom:1px solid #e5e9f0;color:#536073;">${this.escape(label)}</td>
+            <td style="padding:12px 0;border-bottom:1px solid #e5e9f0;font-weight:700;color:#11182f;">${this.escape(value)}</td>
+          </tr>
+        `,
+      )
+      .join('');
+
+    return `
+      <div style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Helvetica,sans-serif;color:#182033;">
+        <div style="max-width:680px;margin:0 auto;padding:28px 16px;">
+          <div style="background:#11182f;color:#fff;border-radius:8px 8px 0 0;padding:24px;">
+            <div style="font-size:22px;font-weight:800;letter-spacing:.04em;">EZ-Trucks</div>
+            <div style="margin-top:6px;color:#b8bec8;text-transform:uppercase;letter-spacing:.18em;font-size:12px;">Depannage vrachtwagens</div>
+          </div>
+          <div style="background:#fff;border:1px solid #d8dee8;border-top:0;border-radius:0 0 8px 8px;padding:28px;">
+            <h1 style="margin:0 0 12px;color:#11182f;font-size:28px;line-height:1.15;">Nieuwe depannageaanvraag</h1>
+            <p style="margin:0 0 22px;color:#536073;font-size:16px;line-height:1.6;">
+              Er is een nieuwe aanvraag binnengekomen via de EZ-Trucks website. Antwoord rechtstreeks op deze mail om de klant te contacteren.
+            </p>
+            <table role="presentation" style="width:100%;border-collapse:collapse;">${rows}</table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private buildDepannageText(request: DepannageRequest): string {
+    return `
+Nieuwe depannageaanvraag
+
+Naam: ${request.name}
+Bedrijf: ${request.company || '-'}
+E-mail: ${request.email}
+Telefoon: ${request.phone}
+Locatie vrachtwagen: ${request.location}
+Vrachtwagen: ${request.vehicleInfo}
+Dringendheid: ${request.urgency}
+Bericht: ${request.message || '-'}
     `.trim();
   }
 

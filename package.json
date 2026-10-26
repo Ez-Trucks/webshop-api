@@ -18,7 +18,11 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "db:deploy": "prisma migrate deploy",
+    "start:deploy": "npm run db:deploy && node dist/src/main.js",
+    "test:release": "jest --runInBand ad-assistant operations inquiries",
+    "test:database": "node scripts/test-release-database.cjs"
   },
   "dependencies": {
     "@mollie/api-client": "^4.4.0",

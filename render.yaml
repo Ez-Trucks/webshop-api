@@ -2,8 +2,9 @@ services:
   - type: web
     name: ez-trucks-api
     env: node
-    buildCommand: npm install && npx prisma generate && npm run build
-    startCommand: npm run start:prod
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npm run start:deploy
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -33,3 +34,7 @@ services:
         sync: false
       - key: ADMIN_TOKEN_TTL_SECONDS
         value: 28800
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_AD_MODEL
+        value: gpt-4.1-mini
