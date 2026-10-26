@@ -126,6 +126,25 @@ describe('AI-provider', () => {
     expect(body.store).toBe(false); expect(body.text.format.strict).toBe(true);
     expect(body.input[0].content[0].text).toContain('Cabine beschadigd');
   });
+  it.each([
+    ['insufficient_quota', 'insufficient_quota', 'Billing en Limits'],
+    ['credit_balance_exhausted', 'insufficient_quota', 'API-tegoed is op'],
+    ['project_spend_limit_exceeded', 'insufficient_quota', 'project is bereikt'],
+    ['organization_spend_limit_exceeded', 'insufficient_quota', 'organisatie is bereikt'],
+    ['organization_usage_limit_exceeded', 'insufficient_quota', 'gebruikslimiet'],
+    ['unknown', 'insufficient_quota', 'Billing en Limits'],
+    ['rate_limit_exceeded', 'rate_limit_error', 'aanvraag- of tokenlimiet'],
+  ])('onderscheidt OpenAI-fout %s van een tijdelijke limiet', async (code, type, message) => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 429,
+      json: async () => ({ error: { code, type, message: 'PRIVATE_PROVIDER_DETAILS' } }) } as Response);
+    await expect(new AdAiService().analyze('', '', [], [])).rejects.toThrow(message);
+    await expect(new AdAiService().analyze('', '', [], [])).rejects.not.toThrow('PRIVATE_PROVIDER_DETAILS');
+  });
+  it('blijft bruikbaar bij een niet-JSON foutantwoord', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false, status: 429,
+      json: async () => { throw new Error('invalid json'); } } as unknown as Response);
+    await expect(new AdAiService().analyze('', '', [], [])).rejects.toThrow('aanvraag- of tokenlimiet');
+  });
   it('weigert incomplete of geweigerde AI-antwoorden', async () => {
     jest.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, json: async () => ({ status: 'incomplete', output: [] }) } as unknown as Response);
     await expect(new AdAiService().analyze('', '', [], [])).rejects.toThrow('geen volledig resultaat');

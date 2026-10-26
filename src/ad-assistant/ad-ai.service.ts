@@ -19,8 +19,26 @@ export class AdAiService {
           text: { format: { type: 'json_schema', name: 'vehicle_ad', strict: true, schema } } }),
       });
     } catch { throw new BadGatewayException('AI is niet bereikbaar. Je concept is bewaard; probeer later opnieuw.'); }
-    if (!response.ok) throw new BadGatewayException(response.status === 429
-      ? 'AI-limiet bereikt. Probeer later opnieuw.' : 'AI-aanvraag mislukt. Controleer de serversleutel en het ingestelde model.');
+    if (!response.ok) {
+      // Classify provider errors without exposing their raw message or credentials.
+      const details = await response.json().catch(() => ({}));
+      const code = details?.error?.code;
+      const type = details?.error?.type;
+      if (response.status === 429) {
+        const messages: Record<string, string> = {
+          credit_balance_exhausted: 'Het OpenAI API-tegoed is op. Voeg tegoed toe in OpenAI Platform bij Billing. Je concept is bewaard.',
+          organization_spend_limit_exceeded: 'De uitgavenlimiet van je OpenAI-organisatie is bereikt. Controleer de limiet in OpenAI Platform. Je concept is bewaard.',
+          project_spend_limit_exceeded: 'De uitgavenlimiet van je OpenAI-project is bereikt. Controleer de projectlimiet in OpenAI Platform. Je concept is bewaard.',
+          organization_usage_limit_exceeded: 'De gebruikslimiet van je OpenAI-organisatie is bereikt. Controleer Limits in OpenAI Platform. Je concept is bewaard.',
+          insufficient_quota: 'OpenAI meldt onvoldoende API-tegoed of een bereikte gebruikslimiet. Controleer Billing en Limits in OpenAI Platform. Een ChatGPT-abonnement bevat geen API-tegoed. Je concept is bewaard.',
+        };
+        const message = messages[code] || (type === 'insufficient_quota' ? messages.insufficient_quota :
+          'OpenAI weigert de aanvraag tijdelijk wegens een aanvraag- of tokenlimiet. Wacht even en probeer opnieuw, eventueel met minder foto’s. Je concept is bewaard.');
+        throw new BadGatewayException(message);
+      }
+      if (response.status === 401) throw new BadGatewayException('OpenAI accepteert de API-sleutel niet. Controleer OPENAI_API_KEY op de server. Je concept is bewaard.');
+      throw new BadGatewayException('AI-aanvraag mislukt. Controleer de serversleutel en het ingestelde model. Je concept is bewaard.');
+    }
     const body = await response.json();
     const output = (body.output ?? []).flatMap((item: any) => item.content ?? [])
       .filter((item: any) => item.type === 'output_text').map((item: any) => item.text).join('');
